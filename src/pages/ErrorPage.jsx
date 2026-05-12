@@ -12,7 +12,7 @@ export default function ErrorPage() {
 
       <main
         aria-label="Voice input error"
-        className="flex-1 flex flex-col px-screen pt-8"
+        className="flex-1 flex flex-col px-screen pt-8 max-w-sm mx-auto w-full"
       >
         {/* Error icon */}
         <div

@@ -83,7 +83,7 @@ export default function ConfirmPage() {
       </div>
 
       {/* Centre — confirmation card */}
-      <div className="card mx-4 p-6 text-center">
+      <div className="card max-w-sm mx-auto w-full p-6 text-center">
         <h2 className="text-amount font-bold mb-3">{pending.name}</h2>
         <p className="text-h1 font-black text-cyan">RM</p>
         <p className="text-amount font-black text-cyan leading-none mb-3">
