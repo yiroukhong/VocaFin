@@ -1,21 +1,38 @@
-import { Link } from 'react-router-dom'
+import { Home, Mic, History } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
-// No props.
-// TODO: Horizontal navigation bar with the VocaFin app name and links to all
-// main routes. Should be fully keyboard and screen-reader accessible.
-export default function Navbar() {
+// Props: activePage — 'hub' | 'voice' | 'history'
+export default function Navbar({ activePage }) {
+  const navigate = useNavigate()
+
+  const items = [
+    { id: 'hub',     label: 'Hub',     Icon: Home,    path: '/'        },
+    { id: 'voice',   label: 'Voice',   Icon: Mic,     path: '/log'     },
+    { id: 'history', label: 'History', Icon: History, path: '/history' },
+  ]
+
   return (
     <nav
       aria-label="Main navigation"
-      className="w-full bg-surface flex items-center justify-between px-6 py-4"
+      className="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto
+                 bg-bg-surface border-t border-white/10 h-16
+                 flex items-center justify-around z-50"
     >
-      <span className="text-accent font-bold text-xl">VocaFin</span>
-      <ul className="flex gap-4 text-sm" role="list">
-        <li><Link to="/"        className="hover:text-accent focus:text-accent">Home</Link></li>
-        <li><Link to="/budget"  className="hover:text-accent focus:text-accent">Budget</Link></li>
-        <li><Link to="/history" className="hover:text-accent focus:text-accent">History</Link></li>
-        <li><Link to="/summary" className="hover:text-accent focus:text-accent">Summary</Link></li>
-      </ul>
+      {items.map(({ id, label, Icon, path }) => {
+        const active = activePage === id
+        return (
+          <button
+            key={id}
+            onClick={() => navigate(path)}
+            aria-label={label}
+            aria-current={active ? 'page' : undefined}
+            className="flex flex-col items-center gap-1 flex-1"
+          >
+            <Icon size={22} className={active ? 'text-cyan' : 'text-text-muted'} />
+            <span className={`text-[11px] ${active ? 'text-cyan' : 'text-text-muted'}`}>{label}</span>
+          </button>
+        )
+      })}
     </nav>
   )
 }

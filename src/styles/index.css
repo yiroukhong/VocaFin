@@ -2,7 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: #1A1A2E;
-  color: white;
+@layer base {
+  html, body, #root {
+    @apply bg-bg-base text-text-primary min-h-screen font-sans antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-bg-surface rounded-card p-4;
+  }
+  .btn-beige {
+    @apply w-full bg-beige text-bg-base font-bold py-4 rounded-btn
+           text-center active:opacity-80 transition-opacity;
+  }
+  .btn-outline {
+    @apply w-full border border-white/20 text-text-primary font-semibold py-4 rounded-btn
+           text-center active:bg-white/5 transition-colors;
+  }
+  .px-screen { @apply px-4; }
+  .screen-container {
+    @apply max-w-[390px] mx-auto min-h-screen flex flex-col;
+  }
 }
