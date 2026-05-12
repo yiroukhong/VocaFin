@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mic } from 'lucide-react'
 import TopBar from '@/components/TopBar'
@@ -5,9 +6,35 @@ import VoiceRings from '@/components/VoiceRings'
 
 export default function LogExpensePage() {
   const navigate = useNavigate()
+  const autoTimer = useRef(null)
+  const holdTimer = useRef(null)
+
+  useEffect(() => {
+    autoTimer.current = setTimeout(() => navigate('/confirm'), 3000)
+    return () => {
+      clearTimeout(autoTimer.current)
+      clearTimeout(holdTimer.current)
+    }
+  }, [navigate])
+
+  function handlePointerDown() {
+    holdTimer.current = setTimeout(() => {
+      clearTimeout(autoTimer.current)
+      navigate('/error')
+    }, 800)
+  }
+
+  function cancelHold() {
+    clearTimeout(holdTimer.current)
+  }
 
   return (
-    <div className="screen-container bg-bg-base">
+    <div
+      className="screen-container bg-bg-base select-none"
+      onPointerDown={handlePointerDown}
+      onPointerUp={cancelHold}
+      onPointerLeave={cancelHold}
+    >
       <TopBar label="Logging 1" />
 
       <main
@@ -22,13 +49,9 @@ export default function LogExpensePage() {
       </main>
 
       <div className="px-screen pb-8">
-        <button
-          onClick={() => navigate('/')}
-          aria-label="Long press to cancel"
-          className="w-full border border-white/20 rounded-btn py-3 px-6"
-        >
+        <div className="w-full border border-white/20 rounded-btn py-3 px-6 text-center">
           <span className="text-caption text-text-muted">Long press to Cancel</span>
-        </button>
+        </div>
       </div>
     </div>
   )
