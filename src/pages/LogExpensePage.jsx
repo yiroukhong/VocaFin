@@ -20,7 +20,7 @@ export default function LogExpensePage() {
   function handlePointerDown() {
     holdTimer.current = setTimeout(() => {
       clearTimeout(autoTimer.current)
-      navigate('/error')
+      navigate('/')
     }, 800)
   }
 

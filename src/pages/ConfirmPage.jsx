@@ -68,7 +68,7 @@ export default function ConfirmPage() {
   return (
     <div
       className="screen-container touch-none flex flex-col bg-bg-base select-none"
-      aria-label="Confirm transaction — swipe up to save, swipe down to cancel"
+      aria-label="Confirm entry — swipe up to save, swipe down to cancel"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onMouseDown={handleMouseDown}
@@ -77,26 +77,28 @@ export default function ConfirmPage() {
       <TopBar label="Log confirmation" />
 
       {/* Top — swipe up zone, green arrow */}
-      <div className="flex-1 flex items-center justify-center" aria-hidden="true">
+      <div className="flex-1 flex-col flex items-center justify-center" aria-hidden="true">
         <ArrowUp size={96} strokeWidth={1.5} className="text-save-green" />
+        <p className='text-amount'>Save</p>
       </div>
 
       {/* Centre — confirmation card */}
       <div className="card mx-4 p-6 text-center">
-        <h2 className="text-h2 font-bold mb-3">{pending.name}</h2>
-        <p className="text-body text-cyan">RM</p>
+        <h2 className="text-amount font-bold mb-3">{pending.name}</h2>
+        <p className="text-h1 font-black text-cyan">RM</p>
         <p className="text-amount font-black text-cyan leading-none mb-3">
           {Number(pending.amount).toFixed(2)}
         </p>
         <div className="flex items-center justify-center gap-2 text-caption text-text-muted">
-          <Utensils size={14} />
-          <span>Category: {pending.category}</span>
+          <Utensils size={50} />
+          <span className='text-h1 font-black'>Category: {pending.category}</span>
         </div>
       </div>
 
       {/* Bottom — swipe down zone, red arrow */}
-      <div className="flex-1 flex items-center justify-center" aria-hidden="true">
+      <div className="flex-1 flex-col flex items-center justify-center" aria-hidden="true">
         <ArrowDown size={96} strokeWidth={1.5} className="text-cancel-red" />
+        <p className='text-amount'>Cancel</p>
       </div>
     </div>
   )

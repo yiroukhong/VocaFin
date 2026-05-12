@@ -6,7 +6,7 @@ import VoiceRings from '@/components/VoiceRings'
 export default function PlaySummaryPage() {
   const navigate = useNavigate()
   const { type } = useParams()
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(true)
   const [progress, setProgress] = useState(0)
   const intervalRef = useRef(null)
 
@@ -70,9 +70,9 @@ export default function PlaySummaryPage() {
 
         {/* Playback controls */}
         <div className="flex items-center gap-8">
-          <button onClick={handleSkipBack}    aria-label="Skip back">    <SkipBack    size={28} className="text-white" /></button>
-          <button onClick={handleReplay}      aria-label="Replay">       <RefreshCw   size={28} className="text-white" /></button>
-          <button onClick={handleSkipForward} aria-label="Skip forward"> <SkipForward size={28} className="text-white" /></button>
+          <button onClick={handleSkipBack}    aria-label="Skip back">    <SkipBack    size={50} className="text-white" /></button>
+          <button onClick={handleReplay}      aria-label="Replay">       <RefreshCw   size={50} className="text-white" /></button>
+          <button onClick={handleSkipForward} aria-label="Skip forward"> <SkipForward size={50} className="text-white" /></button>
         </div>
 
         {/* Back button */}

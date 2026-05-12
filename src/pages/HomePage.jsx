@@ -30,19 +30,19 @@ export default function HomePage() {
 
       {/* Weekly Summary card */}
       <div className="card mx-4 mb-3">
-        <p className="text-h2 font-bold mb-1">Weekly Summary</p>
+        <p className="text-h1 font-bold mb-1">Weekly Summary</p>
         <p className="text-caption text-text-muted mb-3">Resets in 3 days</p>
 
         {/* Spent block */}
         <div className="bg-bg-card rounded-card p-3 mb-2">
-          <p className="text-caption text-text-muted">Spent</p>
+          <p className="text-h1 text-text-muted">Spent</p>
           <p className="text-body text-text-primary">RM</p>
           <p className="text-amount font-black text-text-primary leading-none">180.00</p>
         </div>
 
         {/* Remaining block */}
         <div className="bg-bg-card border-2 border-cyan rounded-card p-3">
-          <p className="text-caption text-cyan">Remaining</p>
+          <p className="text-h1 text-cyan">Remaining</p>
           <p className="text-body text-cyan">RM</p>
           <p className="text-amount font-black text-cyan leading-none">220.00</p>
         </div>

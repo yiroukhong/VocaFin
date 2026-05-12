@@ -15,7 +15,7 @@ export default function Navbar({ activePage }) {
     <nav
       aria-label="Main navigation"
       className="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto
-                 bg-bg-surface border-t border-white/10 h-16
+                 bg-bg-surface border-t border-white/10 h-20
                  flex items-center justify-around z-50"
     >
       {items.map(({ id, label, Icon, path }) => {
@@ -26,10 +26,10 @@ export default function Navbar({ activePage }) {
             onClick={() => navigate(path)}
             aria-label={label}
             aria-current={active ? 'page' : undefined}
-            className="flex flex-col items-center gap-1 flex-1"
+            className="flex flex-col items-center flex-1"
           >
-            <Icon size={22} className={active ? 'text-cyan' : 'text-text-muted'} />
-            <span className={`text-[11px] ${active ? 'text-cyan' : 'text-text-muted'}`}>{label}</span>
+            <Icon size={40} className={active ? 'text-cyan' : 'text-text-muted'} />
+            <span className={`text-[15px] ${active ? 'text-cyan' : 'text-text-muted'}`}>{label}</span>
           </button>
         )
       })}

@@ -50,7 +50,7 @@ export default function SavedPage() {
         aria-label="Transaction saved — swipe up for new entry, swipe down to go home"
         className="flex-1 flex flex-col items-center justify-center gap-8"
       >
-        <h1 className="text-display font-extrabold text-center">Saved!</h1>
+        <h1 className="text-amount font-extrabold text-center">Saved!</h1>
 
         {/* Success circle */}
         <div
@@ -62,13 +62,13 @@ export default function SavedPage() {
 
         {/* Visual hints */}
         <div className="flex flex-col items-center gap-1 mt-4" aria-hidden="true">
-          <ArrowUp size={28} className="text-save-green" />
-          <span className="text-h2 text-text-primary">New Entry</span>
-          <ArrowDown size={22} className="text-text-muted mt-3" />
-          <span className="text-caption text-text-muted">Home</span>
+          <ArrowUp size={50} className="text-save-green" />
+          <span className="text-h1 text-text-primary">New Entry</span>
+          <ArrowDown size={50} className="text-text-muted mt-3" />
+          <span className="text-h1 text-text-muted">Home</span>
         </div>
 
-        <p className="text-caption text-text-muted text-center">
+        <p className="text-h2 text-text-muted text-center">
           Swipe up for new entry
         </p>
       </main>
