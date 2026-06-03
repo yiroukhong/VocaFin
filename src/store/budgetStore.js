@@ -5,8 +5,8 @@ import { DEFAULT_MONTHLY_LIMIT, DEFAULT_CATEGORY_LIMITS } from '@/data/budgetDef
 export const useBudgetStore = create(
   persist(
     (set) => ({
-      monthlyLimit: DEFAULT_MONTHLY_LIMIT,
-      categoryLimits: DEFAULT_CATEGORY_LIMITS,
+      monthlyLimit: DEFAULT_MONTHLY_LIMIT || 500,
+      categoryLimits: DEFAULT_CATEGORY_LIMITS || {},
 
       setMonthlyLimit: (n) => set({ monthlyLimit: n }),
 
