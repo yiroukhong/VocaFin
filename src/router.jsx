@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import LogExpensePage from './pages/LogExpensePage';
 import ConfirmPage from './pages/ConfirmPage';
@@ -7,11 +7,11 @@ import SummaryPage from './pages/SummaryPage';
 import BudgetPage from './pages/BudgetPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ExtractPage from './pages/ExtractPage';
-import LoginPage from './pages/LoginPage'; // 1. Import Login Page
+import LoginPage from './pages/LoginPage';
 
 export const router = createBrowserRouter([
   {
-    path: '/login', // 2. Add login route OUTSIDE the main layout so it doesn't show the navbar
+    path: '/login',
     element: <LoginPage />,
   },
   {
@@ -19,7 +19,9 @@ export const router = createBrowserRouter([
     element: <Outlet />,
     errorElement: <NotFoundPage />,
     children: [
-      { index: true, element: <HomePage /> },
+      // If someone hits '/', redirect them to '/login'
+      { index: true, element: <Navigate to="/login" replace /> },
+      { path: 'home', element: <HomePage /> }, // Moved from index to 'home'
       { path: 'log', element: <LogExpensePage /> },
       { path: 'confirm', element: <ConfirmPage /> },
       { path: 'history', element: <HistoryPage /> },

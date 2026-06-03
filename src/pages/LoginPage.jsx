@@ -23,7 +23,7 @@ export default function LoginPage() {
 
       setTimeout(() => {
         setAuthenticated(true)
-        navigate('/')
+        navigate('/home')
       }, 1500)
     }, 2200)
   }
