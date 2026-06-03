@@ -87,7 +87,7 @@ export default function LogExpensePage() {
   const handleCancel = useCallback(() => {
     stopListening()
     window.speechSynthesis?.cancel()
-    navigate('/')
+    navigate('/home')
   }, [navigate, stopListening])
 
   useEffect(() => {

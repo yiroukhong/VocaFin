@@ -232,7 +232,7 @@ export default function HistoryPage() {
     longPressTimer.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate([50, 50, 50])
       window.speechSynthesis.cancel()
-      navigate('/')
+      navigate('/home')
     }, 800)
   }
   const cancelLongPress = () => {

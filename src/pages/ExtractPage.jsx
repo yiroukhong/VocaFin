@@ -89,7 +89,7 @@ export default function ExtractPage() {
   // Keyboard shortcut for accessibility
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') navigate('/')
+      if (e.key === 'Escape') navigate('/home')
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -102,7 +102,7 @@ export default function ExtractPage() {
     // Start a timer for 800 milliseconds when the user touches/clicks
     longPressTimer.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate([50, 50, 50]) // Haptic buzz to confirm!
-      navigate('/')
+      navigate('/home')
     }, 800)
   }
 
