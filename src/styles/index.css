@@ -6,3 +6,26 @@ body {
   background-color: #1A1A2E;
   color: white;
 }
+
+:focus-visible {
+  outline: 4px solid #5eead4;
+  outline-offset: 3px;
+}
+
+button,
+a,
+input,
+select {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
