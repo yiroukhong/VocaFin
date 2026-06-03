@@ -14,7 +14,7 @@ export default function ConfirmPage() {
 
   useEffect(() => {
     if (!pendingTransaction) {
-      navigate('/')
+      navigate('/home')
     }
   }, [pendingTransaction, navigate])
 
@@ -37,13 +37,13 @@ export default function ConfirmPage() {
       clearPending()
       // Mock haptic feedback as mentioned in report
       if (navigator.vibrate) navigator.vibrate([100, 50, 100])
-      navigate('/')
+      navigate('/home')
     }
   }
 
   const handleCancel = () => {
     clearPending()
-    navigate('/')
+    navigate('/home')
   }
 
   // Swipe gesture detection
