@@ -34,13 +34,12 @@ export default function SummaryPage() {
   const now = new Date()
   const monthName = now.toLocaleString('en-US', { month: 'short' })
 
-  // Announce page load
+  // Announce page load (Removed "Press W/M/C" instructions)
   useEffect(() => {
     if (!pageLoaded) {
       const announcePage = async () => {
         const budgetInfo = `Budget summary. Total spent this month: ${totalSpentThisMonth.toFixed(2)} ringgit. Remaining budget: ${remainingBudget.toFixed(2)} ringgit.`;
-        const navigationHelp = 'Press W for weekly summary, M for monthly summary, or C for top categories.';
-        await announceNavigation(`${budgetInfo} ${navigationHelp}`);
+        await announceNavigation(budgetInfo);
         setPageLoaded(true);
       };
       announcePage();
