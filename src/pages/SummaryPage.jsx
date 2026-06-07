@@ -211,6 +211,71 @@ export default function SummaryPage() {
     setAudioMode(null)
   }
 
+  // ==========================================
+  // GLOBAL GESTURE ENGINE (Double Tap, Long Press, 2-Finger Swipe)
+  // ==========================================
+  const lastTapTime = useRef(0)
+  const touchStartY = useRef(0)
+  const globalLongPressTimer = useRef(null)
+  const isTwoFinger = useRef(false)
+
+  const handleTouchStart = (e) => {
+    // Prevent triggering on interactive elements like buttons
+    if (e.target.closest('button') || e.target.closest('input')) return;
+
+    // 1. Long Press setup (Emergency Cancel to Home)
+    globalLongPressTimer.current = setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+      window.speechSynthesis.cancel();
+      navigate('/home');
+    }, 800);
+
+    // 2. Double Tap setup (Jump to Voice Logger)
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime.current;
+    
+    if (tapLength > 0 && tapLength < 300) {
+      clearTimeout(globalLongPressTimer.current);
+      if (navigator.vibrate) navigator.vibrate(50);
+      window.speechSynthesis.cancel();
+      navigate('/log');
+      e.preventDefault();
+    }
+    lastTapTime.current = currentTime;
+
+    // 3. Swipe setup
+    touchStartY.current = e.touches[0].clientY;
+    isTwoFinger.current = e.touches.length === 2;
+  };
+
+  const handleTouchMove = (e) => {
+    clearTimeout(globalLongPressTimer.current);
+    if (e.touches.length === 2) {
+      isTwoFinger.current = true;
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    clearTimeout(globalLongPressTimer.current);
+    
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartY.current - touchEndY;
+
+    // Two-Finger Vertical Swipe Action (Read last 3 transactions)
+    if (Math.abs(deltaY) > 50 && isTwoFinger.current) {
+      window.speechSynthesis.cancel();
+      const last3 = transactions.slice(0, 3);
+      if (last3.length === 0) {
+        startAudioPlayer('Recent', 'No recent transactions found.');
+      } else {
+        const textToRead = last3.map(t => `${t.note || t.category}, ${t.amount.toFixed(2)} ringgit.`).join(' ');
+        startAudioPlayer('Recent', `Reading your last ${last3.length} transactions. ${textToRead}`);
+      }
+    }
+    isTwoFinger.current = false;
+  };
+
+  // Dedicated bottom button long presses
   const handlePointerDown = () => {
     longPressTimer.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate([50, 50, 50])
@@ -256,7 +321,12 @@ export default function SummaryPage() {
 
   if (audioMode) {
     return (
-      <div className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden items-center">
+      <div 
+        className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden items-center"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <main className="flex-1 flex flex-col items-center justify-center w-full px-8">
           <h2 className="text-4xl font-bold mb-16 text-center leading-tight tracking-wide">
             Playing<br />{audioMode}<br />Expenses
@@ -323,7 +393,12 @@ export default function SummaryPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#12100e] text-[#eae0d5] p-6 pb-24">
+    <main 
+      className="min-h-screen bg-[#12100e] text-[#eae0d5] p-6 pb-24"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <header className="flex items-center gap-3 mb-8">
         <Wallet className="h-8 w-8 text-[#d6b491]" />
         <h1 className="text-4xl font-bold tracking-tight">Summary</h1>

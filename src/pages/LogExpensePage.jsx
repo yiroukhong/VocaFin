@@ -15,21 +15,18 @@ const CategoryIcon = ({ category }) => {
 
 export default function LogExpensePage() {
   const navigate = useNavigate()
-  const { addTransaction } = useTransactions()
+  const { transactions, addTransaction } = useTransactions()
   const { announce, announceSuccess, announceError, announceClick } = useAudioFeedback()
   
   const [stage, setStage] = useState('idle') 
   const [draftExpense, setDraftExpense] = useState(null)
   const hasProcessedRef = useRef(false);
 
-  // --- MANUAL TEXT CLEANER (HYPER-AGGRESSIVE) ---
+  // --- MANUAL TEXT CLEANER ---
   const manuallyCleanText = (text) => {
     if (!text) return '';
-    
-    // Lowercase and remove punctuation
     let words = text.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/);
     
-    // 1. Remove duplicate numbers anywhere in the sentence (fixes "15 for 15")
     const seenNumbers = new Set();
     let filteredWords = [];
     
@@ -44,7 +41,6 @@ export default function LogExpensePage() {
       }
     }
     
-    // 2. Remove consecutive duplicate words (fixes "15 for for lunch" -> "15 for lunch")
     const finalWords = [];
     for (let i = 0; i < filteredWords.length; i++) {
       if (i === 0 || filteredWords[i] !== filteredWords[i - 1]) {
@@ -52,16 +48,12 @@ export default function LogExpensePage() {
       }
     }
     
-    // 3. Check for exact phrase duplication (fixes "15 for lunch 15 for lunch")
     const halfLength = Math.floor(finalWords.length / 2);
     if (halfLength > 0) {
       const firstHalf = finalWords.slice(0, halfLength).join(' ');
       const secondHalf = finalWords.slice(halfLength, halfLength * 2).join(' ');
-      if (firstHalf === secondHalf) {
-        return firstHalf; // Return just one half if the engine repeated itself
-      }
+      if (firstHalf === secondHalf) return firstHalf; 
     }
-
     return finalWords.join(' ');
   };
 
@@ -69,7 +61,6 @@ export default function LogExpensePage() {
     if (hasProcessedRef.current) return;
     if (!finalText || finalText.trim().length === 0) return;
 
-    // Apply manual cleanup
     const cleanedText = manuallyCleanText(finalText);
     const parsed = parseSpokenExpense(cleanedText);
 
@@ -83,12 +74,12 @@ export default function LogExpensePage() {
     hasProcessedRef.current = true;
     setDraftExpense(parsed);
     setStage('confirm');
-    announceClick(`Confirmed. ${parsed.amount.toFixed(2)} for ${parsed.category}.`);
+    announceClick(`Confirmed. ${parsed.amount.toFixed(2)} for ${parsed.category}. Swipe up to save, or down to cancel.`);
   })
 
   useEffect(() => {
     const announceShortIntro = async () => {
-      await announce('Voice logger. Tap to start, tap again to stop.', null, { rate: 1.1 });
+      await announce('Voice logger. Double tap to start recording.', null, { rate: 1.1 });
     };
     announceShortIntro();
   }, [announce]);
@@ -134,6 +125,91 @@ export default function LogExpensePage() {
     setTimeout(() => navigate('/home'), 100)
   }, [navigate, stopListening, announceClick])
 
+  // ==========================================
+  // GESTURE ENGINE
+  // ==========================================
+  const lastTapTime = useRef(0)
+  const touchStartY = useRef(0)
+  const longPressTimer = useRef(null)
+  const isTwoFinger = useRef(false)
+
+  const handleTouchStart = (e) => {
+    if (e.target.closest('button') || e.target.closest('input')) return;
+
+    // 1. Long Press (Emergency Cancel to Home)
+    longPressTimer.current = setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+      handleCancel();
+    }, 800);
+
+    // 2. Double Tap
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime.current;
+    
+    if (tapLength > 0 && tapLength < 300) {
+      clearTimeout(longPressTimer.current);
+      if (navigator.vibrate) navigator.vibrate(50);
+      
+      if (stage === 'idle' || stage === 'error') {
+        handleScreenTap(); // Start recording
+      } else if (stage === 'listening') {
+        handleScreenTap(); // Stop recording
+      }
+      e.preventDefault();
+    }
+    lastTapTime.current = currentTime;
+
+    // 3. Setup Swipe
+    touchStartY.current = e.touches[0].clientY;
+    isTwoFinger.current = e.touches.length === 2;
+  };
+
+  const handleTouchMove = (e) => {
+    clearTimeout(longPressTimer.current);
+    if (e.touches.length === 2) {
+      isTwoFinger.current = true;
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    clearTimeout(longPressTimer.current);
+    
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartY.current - touchEndY;
+
+    // Two-Finger Vertical Swipe Action (Read last 3 transactions)
+    if (Math.abs(deltaY) > 50 && isTwoFinger.current) {
+      window.speechSynthesis.cancel();
+      const last3 = transactions.slice(0, 3);
+      if (last3.length === 0) {
+        speakText('No recent transactions found.', { rate: 1.1 });
+      } else {
+        const textToRead = last3.map(t => `${t.note || t.category}, ${t.amount.toFixed(2)} ringgit.`).join(' ');
+        speakText(`Last ${last3.length} transactions: ${textToRead}`, { rate: 1.1 });
+      }
+      isTwoFinger.current = false;
+      return; 
+    }
+
+    // Single Finger Swipe (Only active during confirm stage)
+    if (stage === 'confirm' && !isTwoFinger.current) {
+      if (deltaY > 50) {
+        // Swipe Up -> Save
+        if (navigator.vibrate) navigator.vibrate(50);
+        handleSave();
+      } else if (deltaY < -50) {
+        // Swipe Down -> Cancel/Discard
+        if (navigator.vibrate) navigator.vibrate(50);
+        setStage('idle');
+        setDraftExpense(null);
+        hasProcessedRef.current = false;
+        announceClick('Entry discarded. Ready for new input.');
+      }
+    }
+
+    isTwoFinger.current = false;
+  };
+
   useEffect(() => {
     if (micError) {
       console.error('❌ [VOICE DEBUG] System Microphone Error:', micError)
@@ -148,8 +224,6 @@ export default function LogExpensePage() {
     }
   }, [stopListening])
 
-  const longPressTimer = useRef(null)
-
   const handlePointerDown = () => {
     longPressTimer.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate([50, 50, 50])
@@ -157,17 +231,16 @@ export default function LogExpensePage() {
     }, 800)
   }
 
-  const cancelLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }
-
+  const cancelLongPress = () => clearTimeout(longPressTimer.current)
   const bottomText = (stage === 'listening' || stage === 'processing') ? 'Long press to Cancel' : 'Long press to Home'
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden">
+    <div 
+      className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       
       <header className="flex items-center gap-3 p-4 border-b border-gray-800 bg-[#0a0a0a] shrink-0 z-20">
         <Wallet className="h-6 w-6 text-[#fdba74]" strokeWidth={2} />
@@ -177,7 +250,7 @@ export default function LogExpensePage() {
       <main className="flex-1 flex flex-col w-full relative" aria-live="polite">
         
         {stage === 'idle' && (
-          <div className="flex-1 flex flex-col items-center justify-center w-full cursor-pointer active:bg-white/5 transition-colors" onClick={handleScreenTap}>
+          <div className="flex-1 flex flex-col items-center justify-center w-full cursor-pointer active:bg-white/5 transition-colors">
             <div className="relative flex items-center justify-center mb-24">
               <div className="absolute w-40 h-40 border-2 border-gray-600 rounded-full" />
               <div className="relative z-10 w-24 h-24 flex items-center justify-center">
@@ -185,13 +258,13 @@ export default function LogExpensePage() {
               </div>
             </div>
             <div className="text-center px-8 h-24">
-              <p className="text-3xl font-mono font-bold leading-relaxed tracking-wide text-gray-400">Tap to speak</p>
+              <p className="text-3xl font-mono font-bold leading-relaxed tracking-wide text-gray-400">Double tap<br/>to speak</p>
             </div>
           </div>
         )}
 
         {stage === 'listening' && (
-          <div className="flex-1 flex flex-col items-center justify-center w-full cursor-pointer active:bg-white/5 transition-colors" onClick={handleScreenTap}>
+          <div className="flex-1 flex flex-col items-center justify-center w-full cursor-pointer active:bg-white/5 transition-colors">
             <div className="relative flex items-center justify-center mb-24">
               <div className="absolute w-72 h-72 border border-[#22d3ee]/30 rounded-full animate-[ping_3s_ease-in-out_infinite]" />
               <div className="absolute w-56 h-56 border border-[#22d3ee]/50 rounded-full animate-pulse" />
@@ -202,9 +275,9 @@ export default function LogExpensePage() {
             </div>
             <div className="text-center px-8 h-24">
               <p className="text-3xl font-mono font-bold leading-relaxed tracking-wide text-gray-200">
-                {transcript || 'Log ..'}
+                {transcript || 'Listening..'}
               </p>
-              <p className="text-gray-500 mt-4 animate-pulse">Tap to stop</p>
+              <p className="text-gray-500 mt-4 animate-pulse">Double tap to stop</p>
             </div>
           </div>
         )}
@@ -221,7 +294,7 @@ export default function LogExpensePage() {
         )}
 
         {stage === 'error' && (
-          <div className="flex-1 flex flex-col items-center justify-center px-8 text-center text-[#ffb3a7] cursor-pointer active:bg-white/5 transition-colors w-full" onClick={handleScreenTap}>
+          <div className="flex-1 flex flex-col items-center justify-center px-8 text-center text-[#ffb3a7] cursor-pointer active:bg-white/5 transition-colors w-full">
             <div className="w-24 h-24 border-4 border-[#ffb3a7] rounded-full flex items-center justify-center mb-8">
               <span className="text-5xl font-bold">!</span>
             </div>
@@ -229,7 +302,7 @@ export default function LogExpensePage() {
             <p className="text-lg mb-8 text-[#ffb3a7]/80">
               {micError === 'network' 
                 ? "Network error. Speech recognition requires an active internet connection." 
-                : "Please speak clearly or tap to try again."}
+                : "Please speak clearly or double tap to try again."}
             </p>
 
             <div className="w-full max-w-sm mb-6" onClick={(e) => e.stopPropagation()}>
@@ -254,7 +327,6 @@ export default function LogExpensePage() {
                 }}
               />
             </div>
-            <p className="text-gray-400 font-bold tracking-widest uppercase mt-4 animate-pulse">Or tap anywhere to retry voice</p>
           </div>
         )}
 

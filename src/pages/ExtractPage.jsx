@@ -22,13 +22,11 @@ const readFile = (file) => new Promise((resolve, reject) => {
 const buildExtractedData = (fileRecords) => fileRecords.flatMap((file, index) => {
   const fallbackName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ')
   
-  // Assign dummy categories and amounts to match your Figma exactly
   if (index === 0) return [{ id: `${file.id}-1`, merchant: 'Nasi Lemak', category: 'Food & Dining', amount: 12.50, time: '8:30 AM' }]
   if (index === 1) return [{ id: `${file.id}-2`, merchant: 'Grab to KL Sentral', category: 'Transport', amount: 24.00, time: '5:15 PM' }]
   return [{ id: `${file.id}-3`, merchant: fallbackName || 'Guardian Pharmacy', category: 'Health', amount: 45.20, time: '1:00 PM' }]
 })
 
-// Helper to pick the right icon based on category
 const CategoryIcon = ({ category }) => {
   if (category === 'Food & Dining') return <Utensils className="text-black h-6 w-6" />
   if (category === 'Transport') return <Car className="text-white h-6 w-6" />
@@ -36,7 +34,7 @@ const CategoryIcon = ({ category }) => {
 }
 
 export default function ExtractPage() {
-  const [step, setStep] = useState('idle') // 'idle' | 'uploaded' | 'extracted' | 'saving' | 'saved'
+  const [step, setStep] = useState('idle') 
   const [files, setFiles] = useState([])
   const [extractedData, setExtractedData] = useState([])
   const { addTransaction } = useTransactions()
@@ -44,7 +42,6 @@ export default function ExtractPage() {
   const { announceNavigation, announceClick, announceSuccess } = useAudioFeedback()
   const [pageLoaded, setPageLoaded] = useState(false)
 
-  // Announce page load
   useEffect(() => {
     if (!pageLoaded) {
       announceNavigation('Extract page. Upload files to scan.');
@@ -80,18 +77,16 @@ export default function ExtractPage() {
     setExtractedData(buildExtractedData(files))
     setStep('extracted')
     const count = buildExtractedData(files).length
-    await announceClick(`${count} item${count > 1 ? 's' : ''} extracted. Review to save.`);
+    await announceClick(`${count} item${count > 1 ? 's' : ''} extracted. Swipe up to save, swipe down to cancel.`);
   }
 
   const handleSaveAll = async () => {
     setStep('saving')
-    
-    // Simulate the saving delay shown in your Figma
     setTimeout(async () => {
       extractedData.forEach((tx) => {
         addTransaction({
           amount: tx.amount,
-          category: tx.category.split(' ')[0], // Simplify category for the store
+          category: tx.category.split(' ')[0], 
           note: tx.merchant,
           date: new Date().toISOString(),
         })
@@ -102,7 +97,14 @@ export default function ExtractPage() {
     }, 2000)
   }
 
-  // Keyboard shortcut for accessibility
+  const handleCancelExtraction = async () => {
+    await announceClick('Cancelled. Returning to home.');
+    setTimeout(() => {
+      setStep('idle')
+      setFiles([])
+    }, 100)
+  }
+
   useEffect(() => {
     const handleKeyDown = async (e) => {
       if (e.key === 'Escape') {
@@ -114,29 +116,81 @@ export default function ExtractPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [navigate, announceClick])
 
-  // --- Long Press Logic ---
+
+  // ==========================================
+  // GESTURE ENGINE (Double Tap, Swipes, Long Press)
+  // ==========================================
+  const lastTapTime = useRef(0)
+  const touchStartY = useRef(0)
   const longPressTimer = useRef(null)
 
-  const handlePointerDown = () => {
-    // Start a timer for 800 milliseconds when the user touches/clicks
+  const handleTouchStart = (e) => {
+    // Prevent overriding default button clicks/file uploads
+    if (e.target.closest('button') || e.target.closest('label') || e.target.closest('input')) return;
+
+    // 1. Long Press (Emergency Cancel)
     longPressTimer.current = setTimeout(() => {
-      if (navigator.vibrate) navigator.vibrate([50, 50, 50]) // Haptic buzz to confirm!
+      if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+      navigate('/home');
+    }, 800);
+
+    // 2. Double Tap (Voice shortcut)
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime.current;
+    
+    if (tapLength > 0 && tapLength < 300) {
+      clearTimeout(longPressTimer.current);
+      if (navigator.vibrate) navigator.vibrate(50);
+      navigate('/log');
+      e.preventDefault();
+    }
+    lastTapTime.current = currentTime;
+
+    // 3. Setup Swipe
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    clearTimeout(longPressTimer.current);
+  };
+
+  const handleTouchEnd = (e) => {
+    clearTimeout(longPressTimer.current);
+    
+    // Swipe logic only applies during the 'extracted' confirmation stage
+    if (step !== 'extracted') return;
+
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartY.current - touchEndY;
+
+    if (deltaY > 50) {
+      // Swipe Up -> Save
+      if (navigator.vibrate) navigator.vibrate(50);
+      handleSaveAll();
+    } else if (deltaY < -50) {
+      // Swipe Down -> Cancel
+      if (navigator.vibrate) navigator.vibrate(50);
+      handleCancelExtraction();
+    }
+  };
+
+  // Keep manual button long-press
+  const handlePointerDown = () => {
+    longPressTimer.current = setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate([50, 50, 50])
       navigate('/home')
     }, 800)
   }
-
-  const cancelLongPress = () => {
-    // If they let go or drag their finger away before 800ms, cancel the timer
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }
+  const cancelLongPress = () => clearTimeout(longPressTimer.current)
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0a0a0a] text-white select-none">
+    <div 
+      className="flex flex-col min-h-screen bg-[#0a0a0a] text-white select-none"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       
-      {/* Top Header matching Figma */}
       <header className="flex items-center gap-3 p-4 border-b border-gray-800 bg-[#0a0a0a]">
         <Wallet className="h-6 w-6 text-[#fca5a5]" strokeWidth={2} />
         <h1 className="text-2xl font-bold tracking-wide">Extract</h1>
@@ -144,7 +198,6 @@ export default function ExtractPage() {
 
       <main className="flex-1 flex flex-col p-6 overflow-y-auto" aria-live="polite">
         
-        {/* --- STATE 1: IDLE --- */}
         {step === 'idle' && (
           <div className="flex-1 flex flex-col items-center pt-8">
             <label 
@@ -163,7 +216,6 @@ export default function ExtractPage() {
           </div>
         )}
 
-        {/* --- STATE 2: UPLOADED --- */}
         {step === 'uploaded' && (
           <div className="flex-1 flex flex-col space-y-4">
             <h2 className="text-2xl font-bold mb-2">{files.length} Uploaded</h2>
@@ -175,7 +227,6 @@ export default function ExtractPage() {
                     <File className="text-white h-6 w-6 shrink-0" strokeWidth={1.5} />
                     <span className="font-semibold text-lg truncate">{file.name}</span>
                   </div>
-                  {/* Red delete zone simulator (Click to delete) */}
                   <button 
                     onClick={() => handleRemoveFile(file.id)} 
                     className="absolute right-0 h-full w-12 bg-[#ff6b6b] flex items-center justify-center active:w-full transition-all duration-300" 
@@ -205,7 +256,6 @@ export default function ExtractPage() {
           </div>
         )}
 
-        {/* --- STATE 3: EXTRACTED CONFIRMATION --- */}
         {step === 'extracted' && (
           <div className="flex-1 flex flex-col">
             <h2 className="text-3xl font-bold mb-1">Extracted:</h2>
@@ -235,13 +285,7 @@ export default function ExtractPage() {
                 <span className="text-3xl font-bold">Save</span>
               </button>
               <button 
-                onClick={async () => { 
-                  await announceClick('Cancelled. Returning to home.');
-                  setTimeout(() => {
-                    setStep('idle')
-                    setFiles([])
-                  }, 100)
-                }} 
+                onClick={handleCancelExtraction} 
                 className="bg-[#1a1a1a] rounded-3xl py-10 flex flex-col items-center active:bg-[#222]"
               >
                 <ArrowDown size={64} className="text-[#ff6b6b] mb-4" strokeWidth={2.5} />
@@ -251,7 +295,6 @@ export default function ExtractPage() {
           </div>
         )}
 
-        {/* --- STATE 4: SAVING SPINNER --- */}
         {step === 'saving' && (
           <div className="flex-1 flex flex-col items-center justify-center relative">
             <div className="absolute inset-0 opacity-10 flex flex-col items-center justify-center pointer-events-none">
@@ -266,7 +309,6 @@ export default function ExtractPage() {
           </div>
         )}
 
-        {/* --- STATE 5: SAVED SUCCESS --- */}
         {step === 'saved' && (
           <div className="flex-1 flex flex-col items-center justify-center pt-10">
             <h2 className="text-6xl font-bold mb-12">Saved!</h2>
@@ -284,15 +326,13 @@ export default function ExtractPage() {
         )}
       </main>
 
-      {/* Persistent Bottom 'Long press to Home' Button */}
       <div className="p-6 pt-2 pb-8">
         <button
           onPointerDown={handlePointerDown}
           onPointerUp={cancelLongPress}
           onPointerLeave={cancelLongPress}
-          onContextMenu={(e) => e.preventDefault()} // Prevents the right-click menu popping up on mobile
+          onContextMenu={(e) => e.preventDefault()} 
           className="w-full py-4 border border-gray-600 rounded-lg text-gray-300 font-semibold text-lg active:bg-white/10 active:scale-[0.98] transition-all"
-          aria-label="Long press for 1 second to return to Home Dashboard"
         >
           Long press to Home
         </button>
