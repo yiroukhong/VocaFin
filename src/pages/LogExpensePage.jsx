@@ -21,27 +21,49 @@ export default function LogExpensePage() {
   const [stage, setStage] = useState('idle') 
   const [draftExpense, setDraftExpense] = useState(null)
   
+  // MANUAL LOCK: Prevents the microphone from firing multiple times in a row
+  const hasProcessedRef = useRef(false);
+
+  // MANUAL CLEANER: Removes consecutive duplicate words/numbers (e.g., "15 15 15" -> "15")
+  const manuallyCleanText = (text) => {
+    if (!text) return '';
+    const words = text.trim().split(/\s+/);
+    const cleaned = [];
+    
+    for (let i = 0; i < words.length; i++) {
+      // Clean punctuation for comparison to catch "15" and "15,"
+      const currentWord = words[i].toLowerCase().replace(/[^a-z0-9]/g, '');
+      const prevWord = i > 0 ? words[i-1].toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+      
+      if (i === 0 || currentWord !== prevWord) {
+        cleaned.push(words[i]);
+      }
+    }
+    return cleaned.join(' ');
+  };
+
   const { transcript, error: micError, startListening, stopListening } = useVoiceInput((finalText) => {
+    // If we've already processed an expense for this tap, ignore duplicate firings
+    if (hasProcessedRef.current) return;
+
     if (!finalText || finalText.trim().length === 0) return;
 
-    // BUG FIX 2: Remove consecutive duplicate words/numbers. 
-    // Turns "15 15 15 for lunch lunch" into "15 for lunch"
-    const cleanedText = finalText
-      .split(/\s+/)
-      .filter((word, index, arr) => word.toLowerCase() !== arr[index - 1]?.toLowerCase())
-      .join(' ');
-    
-    const parsed = parseSpokenExpense(cleanedText)
+    // Apply manual cleanup
+    const cleanedText = manuallyCleanText(finalText);
+    const parsed = parseSpokenExpense(cleanedText);
 
     if (!parsed.amount || parsed.amount === 0 || !parsed.category) {
-      setStage('error')
-      announceError("I heard " + cleanedText + ". Please speak clearly including amount and category.")
-      return
+      setStage('error');
+      hasProcessedRef.current = true; // Lock out until user taps again
+      announceError("I heard " + cleanedText + ". Please speak clearly including amount and category.");
+      return;
     }
 
-    setDraftExpense(parsed)
-    setStage('confirm')
-    announceClick(`Confirmed. ${parsed.amount.toFixed(2)} for ${parsed.category}.`)
+    // Lock the processing so it doesn't double-log
+    hasProcessedRef.current = true;
+    setDraftExpense(parsed);
+    setStage('confirm');
+    announceClick(`Confirmed. ${parsed.amount.toFixed(2)} for ${parsed.category}.`);
   })
 
   useEffect(() => {
@@ -51,11 +73,10 @@ export default function LogExpensePage() {
     announceShortIntro();
   }, [announce]);
 
-  // BUG FIX 1: Ensure clean state and mute system voice BEFORE starting the mic
   const handleScreenTap = () => {
     if (stage === 'idle' || stage === 'error') {
-      // Forcefully stop any system voice currently playing
-      window.speechSynthesis?.cancel();
+      window.speechSynthesis?.cancel(); // Forcefully stop system voice
+      hasProcessedRef.current = false; // UNLOCK processing for the new session
       
       setStage('listening')
       startListening()
@@ -81,13 +102,14 @@ export default function LogExpensePage() {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100])
       
       setStage('saved')
-      await announceSuccess(`Expense saved! ${draftExpense.amount.toFixed(2)} ringgit for ${draftExpense.category} saved successfully. You can add another entry or press Escape to return home.`)
+      await announceSuccess(`Saved ${draftExpense.amount.toFixed(2)} for ${draftExpense.category}.`)
     }, 1500)
   }, [addTransaction, draftExpense, announceSuccess])
 
   const handleCancel = useCallback(async () => {
     stopListening()
     window.speechSynthesis?.cancel()
+    hasProcessedRef.current = false; // Reset lock
     await announceClick('Returning to home.')
     setTimeout(() => navigate('/home'), 100)
   }, [navigate, stopListening, announceClick])
@@ -201,6 +223,7 @@ export default function LogExpensePage() {
                   if (e.key === 'Enter') {
                     const parsed = parseSpokenExpense(e.target.value);
                     if (!parsed.needsAmount && !parsed.needsCategory) {
+                      hasProcessedRef.current = true; // Lock manual entry as well
                       setDraftExpense(parsed);
                       setStage('confirm');
                     } else {
@@ -234,7 +257,14 @@ export default function LogExpensePage() {
                 <ArrowUp className="text-[#4ade80] mb-4" size={56} strokeWidth={2.5} />
                 <span className="text-3xl font-bold">Save</span>
               </button>
-              <button onClick={handleCancel} className="bg-[#1a1a1a] rounded-3xl py-10 flex flex-col items-center active:bg-[#222] transition-colors">
+              <button 
+                onClick={() => {
+                  setStage('idle')
+                  setDraftExpense(null)
+                  hasProcessedRef.current = false // Reset lock on cancel
+                }} 
+                className="bg-[#1a1a1a] rounded-3xl py-10 flex flex-col items-center active:bg-[#222] transition-colors"
+              >
                 <ArrowDown className="text-[#ff6b6b] mb-4" size={56} strokeWidth={2.5} />
                 <span className="text-3xl font-bold">Cancel</span>
               </button>
@@ -276,6 +306,7 @@ export default function LogExpensePage() {
                   setTimeout(() => {
                     setStage('idle')
                     setDraftExpense(null)
+                    hasProcessedRef.current = false; // MUST UNLOCK for the next run
                   }, 100)
                 }} 
                 className="w-full max-w-[280px] bg-[#1a1a1a] border border-gray-800 rounded-3xl py-8 flex flex-col items-center active:bg-[#222] transition-colors"
