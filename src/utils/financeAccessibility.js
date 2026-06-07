@@ -126,19 +126,3 @@ export function buildFinancialSummary({ transactions, remainingBudget, totalSpen
 
   return `You spent RM ${weeklySpent.toFixed(2)} this week. You spent RM ${totalSpentThisMonth.toFixed(2)} this month. ${remainingText} Your top category is ${topCategory} at RM ${topAmount.toFixed(2)}.`
 }
-
-export function speakText(text, { onEnd, onError } = {}) {
-  if (!('speechSynthesis' in window)) {
-    onError?.()
-    return null
-  }
-
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'en-MY'
-  utterance.rate = 0.9
-  utterance.onend = onEnd
-  utterance.onerror = onError
-  window.speechSynthesis.speak(utterance)
-  return utterance
-}
