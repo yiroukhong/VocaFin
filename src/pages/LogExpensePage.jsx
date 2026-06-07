@@ -1,5 +1,6 @@
 import { useTransactions } from '@/hooks/useTransactions'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
+import { useAudioFeedback } from '@/hooks/useAudioFeedback'
 import { parseSpokenExpense, speakText } from '@/utils/financeAccessibility'
 import { ArrowDown, ArrowUp, Car, Check, Mic, RefreshCcw, ShoppingBag, Utensils, Wallet } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -15,10 +16,12 @@ const CategoryIcon = ({ category }) => {
 export default function LogExpensePage() {
   const navigate = useNavigate()
   const { addTransaction } = useTransactions()
+  const { announce, announceSuccess, announceError, announceClick } = useAudioFeedback()
   
   // Stages: 'idle' -> 'listening' -> 'processing' -> 'error' -> 'confirm' -> 'saving' -> 'saved'
   const [stage, setStage] = useState('idle') 
   const [draftExpense, setDraftExpense] = useState(null)
+  const [pageLoaded, setPageLoaded] = useState(false)
   
   // Voice Hook
   const { transcript, error: micError, startListening, stopListening } = useVoiceInput((finalText) => {
@@ -26,7 +29,7 @@ export default function LogExpensePage() {
 
     if (!finalText || !finalText.trim()) {
       setStage('error')
-      speakText("Sorry, I didn't catch that. Please try again.")
+      announceError("Sorry, I didn't catch that. Please try again.")
       return
     }
 
@@ -34,27 +37,40 @@ export default function LogExpensePage() {
 
     if (parsed.needsAmount || parsed.needsCategory || parsed.amount === 0) {
       setStage('error')
-      speakText("Sorry, I didn't catch that. Please try again.")
+      announceError("Sorry, I didn't catch that. Please try again.")
       return
     }
 
     setDraftExpense(parsed)
     setStage('confirm')
-    speakText(`Confirming. ${parsed.amount.toFixed(2)} ringgit for ${parsed.category}.`)
+    announceClick(`Confirming. ${parsed.amount.toFixed(2)} ringgit for ${parsed.category}.`)
   })
 
-  const beginListening = useCallback(() => {
+  // Announce page load on first render
+  useEffect(() => {
+    if (!pageLoaded) {
+      const announcePageLoad = async () => {
+        await announce('Voice expense logger. Tap the screen or press Space to start speaking. Say your expense, for example: RM 10 for lunch.', null, { rate: 0.9 });
+        setPageLoaded(true);
+      };
+      announcePageLoad();
+    }
+  }, [pageLoaded, announce]);
+
+  const beginListening = useCallback(async () => {
     setStage('listening')
     setDraftExpense(null)
     startListening()
     if (navigator.vibrate) navigator.vibrate(60)
-  }, [startListening])
+    await announceClick('Recording. Speak now.')
+  }, [startListening, announceClick])
 
-  const finishListening = useCallback(() => {
+  const finishListening = useCallback(async () => {
     setStage('processing')
     stopListening()
     if (navigator.vibrate) navigator.vibrate([30, 50, 30])
-  }, [stopListening])
+    await announceClick('Processing your input. Please wait.')
+  }, [stopListening, announceClick])
 
   const handleScreenTap = () => {
     if (stage === 'idle' || stage === 'error') {
@@ -65,11 +81,11 @@ export default function LogExpensePage() {
   }
 
   // --- UPDATED SAVE FUNCTION ---
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!draftExpense) return
     setStage('saving')
     
-    setTimeout(() => {
+    setTimeout(async () => {
       addTransaction({
         amount: draftExpense.amount,
         category: draftExpense.category,
@@ -80,15 +96,16 @@ export default function LogExpensePage() {
       
       // Instead of navigating home, show the Saved screen!
       setStage('saved')
-      speakText("Expense saved successfully.")
+      await announceSuccess(`Expense saved! ${draftExpense.amount.toFixed(2)} ringgit for ${draftExpense.category} saved successfully. You can add another entry or press Escape to return home.`)
     }, 1500)
-  }, [addTransaction, draftExpense])
+  }, [addTransaction, draftExpense, announceSuccess])
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback(async () => {
     stopListening()
     window.speechSynthesis?.cancel()
-    navigate('/home')
-  }, [navigate, stopListening])
+    await announceClick('Returning to home.')
+    setTimeout(() => navigate('/home'), 100)
+  }, [navigate, stopListening, announceClick])
 
   useEffect(() => {
     if (micError) {
@@ -272,9 +289,12 @@ export default function LogExpensePage() {
               </div>
               
               <button 
-                onClick={() => {
-                  setStage('idle')
-                  setDraftExpense(null)
+                onClick={async () => {
+                  await announceClick('Ready for new entry.')
+                  setTimeout(() => {
+                    setStage('idle')
+                    setDraftExpense(null)
+                  }, 100)
                 }} 
                 className="w-full max-w-[280px] bg-[#1a1a1a] border border-gray-800 rounded-3xl py-8 flex flex-col items-center active:bg-[#222] transition-colors"
               >

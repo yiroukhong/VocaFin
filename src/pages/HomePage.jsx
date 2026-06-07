@@ -1,31 +1,55 @@
 import { useBudget } from '@/hooks/useBudget';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useAudioFeedback } from '@/hooks/useAudioFeedback';
 import { getTopCategory } from '@/utils/financeAccessibility';
 import { FileInput, History, BarChart3, Mic, Wallet } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function HomePage() {
   const { remainingBudget, totalSpentThisMonth } = useBudget();
   const { transactions } = useTransactions();
   const navigate = useNavigate();
+  const { announce, announceClick, announceNavigation } = useAudioFeedback();
+  const [pageLoaded, setPageLoaded] = useState(false);
   
   // Safe check in case getTopCategory isn't fully implemented yet
   const topData = getTopCategory ? getTopCategory(transactions) : ['None', 0];
   const topCategory = topData[0];
+
+  // Announce page on load
+  useEffect(() => {
+    if (!pageLoaded) {
+      const announcePage = async () => {
+        const budgetInfo = `Remaining budget: ${remainingBudget.toFixed(2)} ringgit. Total spent this month: ${totalSpentThisMonth.toFixed(2)} ringgit. Top category: ${topCategory}.`;
+        const navigationHelp = 'Four buttons available. Extract to scan receipts, History to view transactions, Summary for budget overview, and Voice to log expenses. Use Tab to navigate or arrow keys to move between buttons.';
+        
+        await announce(`${budgetInfo} ${navigationHelp}`, null, { rate: 0.9 });
+        setPageLoaded(true);
+      };
+      
+      announcePage();
+    }
+  }, [pageLoaded, remainingBudget, totalSpentThisMonth, topCategory, announce]);
 
   // Keyboard shortcut for accessibility
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key === ' ') {
         event.preventDefault();
-        navigate('/log');
+        announceClick('Opening voice expense logger');
+        setTimeout(() => navigate('/log'), 100);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigate]);
+  }, [navigate, announceClick]);
+
+  const handleNavigate = (path, label) => {
+    announceClick(`Opening ${label}`);
+    setTimeout(() => navigate(path), 100);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden">
@@ -47,36 +71,40 @@ export default function HomePage() {
         aria-label="Main Navigation Menu"
       >
         <button
-          onClick={() => navigate('/extract')}
+          onClick={() => handleNavigate('/extract', 'Extract Document')}
+          onFocus={() => announceNavigation('Extract button. Scan receipts to extract expenses.')}
           className="flex flex-col items-center justify-center bg-black border-2 border-white/20 focus:border-cyan-400 focus:ring-inset transition-colors"
-          aria-label="Extract Document"
+          aria-label="Extract Document. Scan receipts to extract expenses automatically."
         >
           <FileInput className="h-28 w-28 mb-4 text-white" strokeWidth={1.5} />
           <span className="text-3xl font-medium tracking-widest">Extract</span>
         </button>
 
         <button
-          onClick={() => navigate('/history')}
+          onClick={() => handleNavigate('/history', 'History')}
+          onFocus={() => announceNavigation('History button. View your transaction history.')}
           className="flex flex-col items-center justify-center bg-black border-2 border-white/20 focus:border-cyan-400 focus:ring-inset transition-colors"
-          aria-label="Transaction History"
+          aria-label="Transaction History. View all your past transactions."
         >
           <History className="h-28 w-28 mb-4 text-white" strokeWidth={1.5} />
           <span className="text-3xl font-medium tracking-widest">History</span>
         </button>
 
         <button
-          onClick={() => navigate('/summary')}
+          onClick={() => handleNavigate('/summary', 'Summary')}
+          onFocus={() => announceNavigation('Summary button. View your budget overview and spending by category.')}
           className="flex flex-col items-center justify-center bg-black border-2 border-white/20 focus:border-cyan-400 focus:ring-inset transition-colors"
-          aria-label="Budget Summary"
+          aria-label="Budget Summary. View spending breakdown by category."
         >
           <BarChart3 className="h-28 w-28 mb-4 text-white" strokeWidth={1.5} />
           <span className="text-3xl font-medium tracking-widest">Summary</span>
         </button>
 
         <button
-          onClick={() => navigate('/log')}
+          onClick={() => handleNavigate('/log', 'Voice Expense Logger')}
+          onFocus={() => announceNavigation('Voice button. Log expenses by speaking.')}
           className="flex flex-col items-center justify-center bg-black border-2 border-white/20 focus:border-cyan-400 focus:ring-inset transition-colors"
-          aria-label="Voice Expense Logger"
+          aria-label="Voice Expense Logger. Log expenses using voice commands."
         >
           <Mic className="h-28 w-28 mb-4 text-white" strokeWidth={1.5} />
           <span className="text-3xl font-medium tracking-widest">Voice</span>

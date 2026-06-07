@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useAudioFeedback } from '@/hooks/useAudioFeedback'
 import { Eye, Lock, ShieldCheck, Unlock } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -9,17 +10,24 @@ export default function LoginPage() {
   const [announcement, setAnnouncement] = useState('Tap, double tap, or press Enter to log in.')
   const navigate = useNavigate()
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated)
+  const { announceClick, announceSuccess } = useAudioFeedback()
 
   const handleAuth = () => {
     if (authStatus !== 'idle') return
 
     setAuthStatus('scanning')
     setAnnouncement('Scanning identity. Please wait.')
+    
+    // Announce scanning with click sound
+    announceClick('Scanning your identity. Please wait.')
 
     setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100])
       setAuthStatus('success')
       setAnnouncement('Login successful. Opening VocaFin.')
+      
+      // Announce success
+      announceSuccess('Login successful! Opening VocaFin.')
 
       setTimeout(() => {
         setAuthenticated(true)
@@ -110,3 +118,4 @@ export default function LoginPage() {
     </main>
   )
 }
+

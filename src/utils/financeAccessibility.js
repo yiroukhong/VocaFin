@@ -1,3 +1,5 @@
+import { speakText as audioSpeakText } from './audioFeedback';
+
 const NUMBER_WORDS = {
   zero: 0,
   one: 1,
@@ -28,6 +30,15 @@ const NUMBER_WORDS = {
   eighty: 80,
   ninety: 90,
   hundred: 100,
+}
+
+/**
+ * Text-to-speech wrapper for backward compatibility
+ * @param {string} text - Text to speak
+ * @param {Object} options - TTS options
+ */
+export const speakText = (text, options = {}) => {
+  return audioSpeakText(text, { ...options, rate: options.rate || 0.95 });
 }
 
 export const CATEGORY_KEYWORDS = {

@@ -1,5 +1,6 @@
 import { useBudget } from '@/hooks/useBudget'
 import { useTransactions } from '@/hooks/useTransactions'
+import { useAudioFeedback } from '@/hooks/useAudioFeedback'
 import { getCategoryTotals } from '@/utils/financeAccessibility'
 import { Pause, Play, Redo, Repeat, Undo, Volume2, VolumeX, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -9,6 +10,7 @@ export default function SummaryPage() {
   const { remainingBudget, totalSpentThisMonth } = useBudget()
   const { transactions } = useTransactions()
   const navigate = useNavigate()
+  const { announceNavigation } = useAudioFeedback()
 
   const [audioMode, setAudioMode] = useState(null)
   const [isPaused, setIsPaused] = useState(false)
@@ -16,6 +18,7 @@ export default function SummaryPage() {
   const [estimatedTime, setEstimatedTime] = useState(5000)
   const [repeatMode, setRepeatMode] = useState(false)
   const [isReadingCategories, setIsReadingCategories] = useState(false)
+  const [pageLoaded, setPageLoaded] = useState(false)
 
   const currentTextRef = useRef('')
   const currentUtteranceRef = useRef(null)
@@ -30,6 +33,19 @@ export default function SummaryPage() {
 
   const now = new Date()
   const monthName = now.toLocaleString('en-US', { month: 'short' })
+
+  // Announce page load
+  useEffect(() => {
+    if (!pageLoaded) {
+      const announcePage = async () => {
+        const budgetInfo = `Budget summary. Total spent this month: ${totalSpentThisMonth.toFixed(2)} ringgit. Remaining budget: ${remainingBudget.toFixed(2)} ringgit.`;
+        const navigationHelp = 'Press W for weekly summary, M for monthly summary, or C for top categories.';
+        await announceNavigation(`${budgetInfo} ${navigationHelp}`);
+        setPageLoaded(true);
+      };
+      announcePage();
+    }
+  }, [pageLoaded, totalSpentThisMonth, remainingBudget, announceNavigation]);
 
   const startAudioPlayer = (mode, text, options = {}) => {
     if (currentUtteranceRef.current) {
