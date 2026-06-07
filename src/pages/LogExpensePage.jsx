@@ -20,32 +20,53 @@ export default function LogExpensePage() {
   
   const [stage, setStage] = useState('idle') 
   const [draftExpense, setDraftExpense] = useState(null)
-  
-  // MANUAL LOCK: Prevents the microphone from firing multiple times in a row
   const hasProcessedRef = useRef(false);
 
-  // MANUAL CLEANER: Removes consecutive duplicate words/numbers (e.g., "15 15 15" -> "15")
+  // --- MANUAL TEXT CLEANER (HYPER-AGGRESSIVE) ---
   const manuallyCleanText = (text) => {
     if (!text) return '';
-    const words = text.trim().split(/\s+/);
-    const cleaned = [];
     
-    for (let i = 0; i < words.length; i++) {
-      // Clean punctuation for comparison to catch "15" and "15,"
-      const currentWord = words[i].toLowerCase().replace(/[^a-z0-9]/g, '');
-      const prevWord = i > 0 ? words[i-1].toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-      
-      if (i === 0 || currentWord !== prevWord) {
-        cleaned.push(words[i]);
+    // Lowercase and remove punctuation
+    let words = text.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/);
+    
+    // 1. Remove duplicate numbers anywhere in the sentence (fixes "15 for 15")
+    const seenNumbers = new Set();
+    let filteredWords = [];
+    
+    for (let word of words) {
+      if (!isNaN(parseFloat(word))) {
+        if (!seenNumbers.has(word)) {
+          seenNumbers.add(word);
+          filteredWords.push(word);
+        }
+      } else {
+        filteredWords.push(word);
       }
     }
-    return cleaned.join(' ');
+    
+    // 2. Remove consecutive duplicate words (fixes "15 for for lunch" -> "15 for lunch")
+    const finalWords = [];
+    for (let i = 0; i < filteredWords.length; i++) {
+      if (i === 0 || filteredWords[i] !== filteredWords[i - 1]) {
+        finalWords.push(filteredWords[i]);
+      }
+    }
+    
+    // 3. Check for exact phrase duplication (fixes "15 for lunch 15 for lunch")
+    const halfLength = Math.floor(finalWords.length / 2);
+    if (halfLength > 0) {
+      const firstHalf = finalWords.slice(0, halfLength).join(' ');
+      const secondHalf = finalWords.slice(halfLength, halfLength * 2).join(' ');
+      if (firstHalf === secondHalf) {
+        return firstHalf; // Return just one half if the engine repeated itself
+      }
+    }
+
+    return finalWords.join(' ');
   };
 
   const { transcript, error: micError, startListening, stopListening } = useVoiceInput((finalText) => {
-    // If we've already processed an expense for this tap, ignore duplicate firings
     if (hasProcessedRef.current) return;
-
     if (!finalText || finalText.trim().length === 0) return;
 
     // Apply manual cleanup
@@ -54,12 +75,11 @@ export default function LogExpensePage() {
 
     if (!parsed.amount || parsed.amount === 0 || !parsed.category) {
       setStage('error');
-      hasProcessedRef.current = true; // Lock out until user taps again
+      hasProcessedRef.current = true;
       announceError("I heard " + cleanedText + ". Please speak clearly including amount and category.");
       return;
     }
 
-    // Lock the processing so it doesn't double-log
     hasProcessedRef.current = true;
     setDraftExpense(parsed);
     setStage('confirm');
@@ -75,8 +95,8 @@ export default function LogExpensePage() {
 
   const handleScreenTap = () => {
     if (stage === 'idle' || stage === 'error') {
-      window.speechSynthesis?.cancel(); // Forcefully stop system voice
-      hasProcessedRef.current = false; // UNLOCK processing for the new session
+      window.speechSynthesis?.cancel();
+      hasProcessedRef.current = false; 
       
       setStage('listening')
       startListening()
@@ -109,7 +129,7 @@ export default function LogExpensePage() {
   const handleCancel = useCallback(async () => {
     stopListening()
     window.speechSynthesis?.cancel()
-    hasProcessedRef.current = false; // Reset lock
+    hasProcessedRef.current = false;
     await announceClick('Returning to home.')
     setTimeout(() => navigate('/home'), 100)
   }, [navigate, stopListening, announceClick])
@@ -221,9 +241,10 @@ export default function LogExpensePage() {
                 className="w-full bg-[#1a1a1a] text-white p-4 rounded-2xl text-center text-xl border-2 border-gray-700 focus:border-[#22d3ee] outline-none transition-colors"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    const parsed = parseSpokenExpense(e.target.value);
+                    const cleanedManualText = manuallyCleanText(e.target.value);
+                    const parsed = parseSpokenExpense(cleanedManualText);
                     if (!parsed.needsAmount && !parsed.needsCategory) {
-                      hasProcessedRef.current = true; // Lock manual entry as well
+                      hasProcessedRef.current = true;
                       setDraftExpense(parsed);
                       setStage('confirm');
                     } else {
@@ -261,7 +282,7 @@ export default function LogExpensePage() {
                 onClick={() => {
                   setStage('idle')
                   setDraftExpense(null)
-                  hasProcessedRef.current = false // Reset lock on cancel
+                  hasProcessedRef.current = false 
                 }} 
                 className="bg-[#1a1a1a] rounded-3xl py-10 flex flex-col items-center active:bg-[#222] transition-colors"
               >
@@ -306,7 +327,7 @@ export default function LogExpensePage() {
                   setTimeout(() => {
                     setStage('idle')
                     setDraftExpense(null)
-                    hasProcessedRef.current = false; // MUST UNLOCK for the next run
+                    hasProcessedRef.current = false;
                   }, 100)
                 }} 
                 className="w-full max-w-[280px] bg-[#1a1a1a] border border-gray-800 rounded-3xl py-8 flex flex-col items-center active:bg-[#222] transition-colors"
