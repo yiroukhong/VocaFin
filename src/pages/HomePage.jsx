@@ -3,7 +3,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAudioFeedback } from '@/hooks/useAudioFeedback';
 import { getTopCategory } from '@/utils/financeAccessibility';
 import { FileInput, History, BarChart3, Mic, Wallet } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function HomePage() {
@@ -32,7 +32,6 @@ export default function HomePage() {
         setTimeout(() => navigate('/log'), 100);
       }
     };
-
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [navigate, announceClick]);
@@ -42,10 +41,82 @@ export default function HomePage() {
     setTimeout(() => navigate(path), 100);
   };
 
+  // ==========================================
+  // GESTURE RECOGNITION ENGINE
+  // ==========================================
+  const lastTapTime = useRef(0);
+  const touchStartY = useRef(0);
+  const longPressTimer = useRef(null);
+  const isTwoFinger = useRef(false);
+
+  const handleTouchStart = (e) => {
+    // 1. Long Press setup (Emergency Cancel to Home)
+    longPressTimer.current = setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+      announce('You are already on the Home screen.');
+    }, 800);
+
+    // 2. Double Tap setup (Activate Voice Input)
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime.current;
+    
+    if (tapLength > 0 && tapLength < 300) {
+      clearTimeout(longPressTimer.current); // Cancel long press if it was a double tap
+      if (navigator.vibrate) navigator.vibrate(50);
+      handleNavigate('/log', 'Voice Expense Logger');
+      e.preventDefault(); // Prevent ghost clicks
+    }
+    lastTapTime.current = currentTime;
+
+    // 3. Swipe setup
+    touchStartY.current = e.touches[0].clientY;
+    isTwoFinger.current = e.touches.length === 2;
+  };
+
+  const handleTouchMove = (e) => {
+    // If the user drags their finger, it's not a long press anymore
+    clearTimeout(longPressTimer.current);
+    
+    // Ensure we track if a second finger touches down during the move
+    if (e.touches.length === 2) {
+      isTwoFinger.current = true;
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    // Clear long press timer on lift
+    clearTimeout(longPressTimer.current);
+
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartY.current - touchEndY;
+
+    // Swipe Threshold check (Must swipe at least 50px)
+    if (Math.abs(deltaY) > 50) {
+      // Two-Finger Swipe Action (Read last 3 transactions)
+      if (isTwoFinger.current) {
+        const last3 = transactions.slice(0, 3);
+        if (last3.length === 0) {
+          announce('No recent transactions found.');
+        } else {
+          const textToRead = last3.map(t => `${t.note || t.category}, ${t.amount.toFixed(2)} ringgit.`).join(' ');
+          announce(`Last ${last3.length} transactions: ${textToRead}`);
+        }
+      }
+    }
+    
+    // Reset two-finger flag
+    isTwoFinger.current = false;
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden">
+    <div 
+      className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       
-      {/* Invisible live region for screen readers (Announces budget on load) */}
+      {/* Invisible live region for screen readers */}
       <div aria-live="polite" role="status" className="sr-only">
         Voca Fin Home. Remaining budget RM {remainingBudget.toFixed(2)}. Total spent RM {totalSpentThisMonth.toFixed(2)}. Top category {topCategory}.
       </div>

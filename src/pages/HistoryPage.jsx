@@ -72,6 +72,7 @@ export default function HistoryPage() {
     }, {})
   }, [transactions, currentMonth, currentYear])
 
+  // Handles left/right swipe for months
   const bindSwipe = useGesture({
     onDragEnd: ({ movement: [mx], swipe: [swipeX] }) => {
       if (audioMode) return 
@@ -241,36 +242,86 @@ export default function HistoryPage() {
     return () => window.speechSynthesis.cancel()
   }, [])
 
-  // --- Long Press Logic (Home) ---
-  const longPressTimer = useRef(null)
+  // ==========================================
+  // GLOBAL GESTURE ENGINE (Double Tap, Long Press, 2-Finger Swipe)
+  // ==========================================
+  const lastTapTime = useRef(0)
+  const touchStartY = useRef(0)
+  const globalLongPressTimer = useRef(null)
+  const isTwoFinger = useRef(false)
+
+  const handleTouchStart = (e) => {
+    // Prevent triggering on interactive elements like buttons
+    if (e.target.closest('button')) return;
+
+    // 1. Long Press setup (Emergency Cancel to Home)
+    globalLongPressTimer.current = setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+      window.speechSynthesis.cancel();
+      navigate('/home');
+    }, 800);
+
+    // 2. Double Tap setup (Jump to Voice Logger)
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime.current;
+    
+    if (tapLength > 0 && tapLength < 300) {
+      clearTimeout(globalLongPressTimer.current);
+      if (navigator.vibrate) navigator.vibrate(50);
+      window.speechSynthesis.cancel();
+      navigate('/log');
+      e.preventDefault();
+    }
+    lastTapTime.current = currentTime;
+
+    // 3. Swipe setup
+    touchStartY.current = e.touches[0].clientY;
+    isTwoFinger.current = e.touches.length === 2;
+  };
+
+  const handleTouchMove = (e) => {
+    clearTimeout(globalLongPressTimer.current);
+    if (e.touches.length === 2) {
+      isTwoFinger.current = true;
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    clearTimeout(globalLongPressTimer.current);
+    
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartY.current - touchEndY;
+
+    // Two-Finger Vertical Swipe Action (Read last 3 transactions)
+    if (Math.abs(deltaY) > 50 && isTwoFinger.current) {
+      const last3 = transactions.slice(0, 3);
+      if (last3.length === 0) {
+        startAudioPlayer('Recent', 'No recent transactions found.');
+      } else {
+        const textToRead = last3.map(t => `${t.note || t.category}, ${t.amount.toFixed(2)} ringgit.`).join(' ');
+        startAudioPlayer('Recent', `Reading your last ${last3.length} transactions. ${textToRead}`);
+      }
+    }
+    isTwoFinger.current = false;
+  };
+
+  // Dedicated button long presses
   const handlePointerDown = () => {
-    longPressTimer.current = setTimeout(() => {
+    globalLongPressTimer.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate([50, 50, 50])
       window.speechSynthesis.cancel()
       navigate('/home')
     }, 800)
   }
-  const cancelLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }
+  const cancelLongPress = () => clearTimeout(globalLongPressTimer.current)
 
-  // --- Long Press Logic (Player Back Button) ---
-  const playerLongPressTimer = useRef(null)
   const handlePlayerPointerDown = () => {
-    playerLongPressTimer.current = setTimeout(() => {
+    globalLongPressTimer.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate([50, 50, 50])
       closePlayer()
     }, 800)
   }
-  const cancelPlayerLongPress = () => {
-    if (playerLongPressTimer.current) {
-      clearTimeout(playerLongPressTimer.current)
-      playerLongPressTimer.current = null
-    }
-  }
+  const cancelPlayerLongPress = () => clearTimeout(globalLongPressTimer.current)
 
 
   // ==========================================
@@ -278,7 +329,12 @@ export default function HistoryPage() {
   // ==========================================
   if (audioMode) {
     return (
-      <div className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden items-center">
+      <div 
+        className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden items-center"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <main className="flex-1 flex flex-col items-center justify-center w-full px-8">
           
           <h2 className="text-4xl font-bold mb-16 text-center leading-tight tracking-wide">
@@ -312,7 +368,6 @@ export default function HistoryPage() {
             />
           </div>
 
-          {/* MASSIVE Hitboxes for Media Controls */}
           <div className="flex items-center justify-between w-full max-w-[320px] text-gray-400">
             <button onClick={restartPlayer} className="p-6 active:text-white active:scale-90 transition-all rounded-full" aria-label="Restart summary from the beginning">
               <Undo size={44} strokeWidth={2} />
@@ -351,7 +406,13 @@ export default function HistoryPage() {
   // RENDER NORMAL HISTORY LIST
   // ==========================================
   return (
-    <div {...bindSwipe()} className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden touch-pan-y">
+    <div 
+      {...bindSwipe()} 
+      className="flex flex-col h-screen bg-[#0a0a0a] text-white select-none overflow-hidden touch-pan-y"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <header className="flex items-center justify-between p-4 border-b border-gray-800 bg-[#0a0a0a] shrink-0">
         <div className="flex items-center gap-3">
           <Wallet className="h-7 w-7 text-[#fdba74]" strokeWidth={2} />
