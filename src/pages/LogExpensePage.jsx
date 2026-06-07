@@ -79,7 +79,7 @@ export default function LogExpensePage() {
 
   useEffect(() => {
     const announceShortIntro = async () => {
-      await announce('Voice logger. Double tap to start recording.', null, { rate: 1.1 });
+      await announce('Voice logger. Tap to start, tap again to stop.', null, { rate: 1.1 });
     };
     announceShortIntro();
   }, [announce]);
@@ -128,7 +128,6 @@ export default function LogExpensePage() {
   // ==========================================
   // GESTURE ENGINE
   // ==========================================
-  const lastTapTime = useRef(0)
   const touchStartY = useRef(0)
   const longPressTimer = useRef(null)
   const isTwoFinger = useRef(false)
@@ -142,24 +141,7 @@ export default function LogExpensePage() {
       handleCancel();
     }, 800);
 
-    // 2. Double Tap
-    const currentTime = new Date().getTime();
-    const tapLength = currentTime - lastTapTime.current;
-    
-    if (tapLength > 0 && tapLength < 300) {
-      clearTimeout(longPressTimer.current);
-      if (navigator.vibrate) navigator.vibrate(50);
-      
-      if (stage === 'idle' || stage === 'error') {
-        handleScreenTap(); // Start recording
-      } else if (stage === 'listening') {
-        handleScreenTap(); // Stop recording
-      }
-      e.preventDefault();
-    }
-    lastTapTime.current = currentTime;
-
-    // 3. Setup Swipe
+    // 2. Setup Swipe
     touchStartY.current = e.touches[0].clientY;
     isTwoFinger.current = e.touches.length === 2;
   };
@@ -250,7 +232,10 @@ export default function LogExpensePage() {
       <main className="flex-1 flex flex-col w-full relative" aria-live="polite">
         
         {stage === 'idle' && (
-          <div className="flex-1 flex flex-col items-center justify-center w-full cursor-pointer active:bg-white/5 transition-colors">
+          <div 
+            className="flex-1 flex flex-col items-center justify-center w-full cursor-pointer active:bg-white/5 transition-colors"
+            onClick={handleScreenTap}
+          >
             <div className="relative flex items-center justify-center mb-24">
               <div className="absolute w-40 h-40 border-2 border-gray-600 rounded-full" />
               <div className="relative z-10 w-24 h-24 flex items-center justify-center">
@@ -258,13 +243,16 @@ export default function LogExpensePage() {
               </div>
             </div>
             <div className="text-center px-8 h-24">
-              <p className="text-3xl font-mono font-bold leading-relaxed tracking-wide text-gray-400">Double tap<br/>to speak</p>
+              <p className="text-3xl font-mono font-bold leading-relaxed tracking-wide text-gray-400">Tap to speak</p>
             </div>
           </div>
         )}
 
         {stage === 'listening' && (
-          <div className="flex-1 flex flex-col items-center justify-center w-full cursor-pointer active:bg-white/5 transition-colors">
+          <div 
+            className="flex-1 flex flex-col items-center justify-center w-full cursor-pointer active:bg-white/5 transition-colors"
+            onClick={handleScreenTap}
+          >
             <div className="relative flex items-center justify-center mb-24">
               <div className="absolute w-72 h-72 border border-[#22d3ee]/30 rounded-full animate-[ping_3s_ease-in-out_infinite]" />
               <div className="absolute w-56 h-56 border border-[#22d3ee]/50 rounded-full animate-pulse" />
@@ -277,7 +265,7 @@ export default function LogExpensePage() {
               <p className="text-3xl font-mono font-bold leading-relaxed tracking-wide text-gray-200">
                 {transcript || 'Listening..'}
               </p>
-              <p className="text-gray-500 mt-4 animate-pulse">Double tap to stop</p>
+              <p className="text-gray-500 mt-4 animate-pulse">Tap to stop</p>
             </div>
           </div>
         )}
@@ -294,7 +282,10 @@ export default function LogExpensePage() {
         )}
 
         {stage === 'error' && (
-          <div className="flex-1 flex flex-col items-center justify-center px-8 text-center text-[#ffb3a7] cursor-pointer active:bg-white/5 transition-colors w-full">
+          <div 
+            className="flex-1 flex flex-col items-center justify-center px-8 text-center text-[#ffb3a7] cursor-pointer active:bg-white/5 transition-colors w-full"
+            onClick={handleScreenTap}
+          >
             <div className="w-24 h-24 border-4 border-[#ffb3a7] rounded-full flex items-center justify-center mb-8">
               <span className="text-5xl font-bold">!</span>
             </div>
@@ -302,7 +293,7 @@ export default function LogExpensePage() {
             <p className="text-lg mb-8 text-[#ffb3a7]/80">
               {micError === 'network' 
                 ? "Network error. Speech recognition requires an active internet connection." 
-                : "Please speak clearly or double tap to try again."}
+                : "Please speak clearly or tap to try again."}
             </p>
 
             <div className="w-full max-w-sm mb-6" onClick={(e) => e.stopPropagation()}>
