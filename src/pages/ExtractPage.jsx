@@ -47,12 +47,8 @@ export default function ExtractPage() {
   // Announce page load
   useEffect(() => {
     if (!pageLoaded) {
-      const announcePage = async () => {
-        const announcement = 'Extract document page. Upload images, PDF, or document files to extract expenses. Files supported: images, PDF, docx, markdown, and CSV.';
-        await announceNavigation(announcement);
-        setPageLoaded(true);
-      };
-      announcePage();
+      announceNavigation('Extract page. Upload files to scan.');
+      setPageLoaded(true);
     }
   }, [pageLoaded, announceNavigation]);
 
@@ -63,7 +59,7 @@ export default function ExtractPage() {
       const fileRecords = await Promise.all(selectedFiles.map(readFile))
       setFiles((prev) => [...prev, ...fileRecords])
       setStep('uploaded')
-      await announceClick(`${fileRecords.length} file${fileRecords.length > 1 ? 's' : ''} uploaded successfully. Press Extract to process.`)
+      await announceClick(`${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} ready.`);
     } catch (error) {
       console.error(error)
     } finally {
@@ -84,7 +80,7 @@ export default function ExtractPage() {
     setExtractedData(buildExtractedData(files))
     setStep('extracted')
     const count = buildExtractedData(files).length
-    await announceClick(`${count} expense${count > 1 ? 's' : ''} extracted from your file${files.length > 1 ? 's' : ''}. Review and press Save to confirm.`)
+    await announceClick(`${count} item${count > 1 ? 's' : ''} extracted. Review to save.`);
   }
 
   const handleSaveAll = async () => {
@@ -102,7 +98,7 @@ export default function ExtractPage() {
       })
       if (navigator.vibrate) navigator.vibrate([100, 50, 100])
       setStep('saved')
-      await announceSuccess(`${extractedData.length} expense${extractedData.length > 1 ? 's' : ''} saved successfully. Total: RM ${extractedData.reduce((sum, tx) => sum + tx.amount, 0).toFixed(2)}.`)
+      await announceSuccess(`Saved ${extractedData.length} items.`);
     }, 2000)
   }
 

@@ -21,20 +21,21 @@ export default function LogExpensePage() {
   const [stage, setStage] = useState('idle') 
   const [draftExpense, setDraftExpense] = useState(null)
   
-  // FIX: Using the 'finalText' only from the callback ensures we don't process partial fragments
   const { transcript, error: micError, startListening, stopListening } = useVoiceInput((finalText) => {
-    // Only process if we actually have text
     if (!finalText || finalText.trim().length === 0) return;
 
-    // Use a Regex to remove duplicate numbers/stutter if necessary
-    // Here we clean the text before parsing
-    const cleanedText = finalText.replace(/(\d+)\s+\1/g, '$1'); 
+    // BUG FIX 2: Remove consecutive duplicate words/numbers. 
+    // Turns "15 15 15 for lunch lunch" into "15 for lunch"
+    const cleanedText = finalText
+      .split(/\s+/)
+      .filter((word, index, arr) => word.toLowerCase() !== arr[index - 1]?.toLowerCase())
+      .join(' ');
     
     const parsed = parseSpokenExpense(cleanedText)
 
     if (!parsed.amount || parsed.amount === 0 || !parsed.category) {
       setStage('error')
-      announceError("I heard " + finalText + ". Please speak clearly including amount and category.")
+      announceError("I heard " + cleanedText + ". Please speak clearly including amount and category.")
       return
     }
 
@@ -43,7 +44,6 @@ export default function LogExpensePage() {
     announceClick(`Confirmed. ${parsed.amount.toFixed(2)} for ${parsed.category}.`)
   })
 
-  // Short, concise intro
   useEffect(() => {
     const announceShortIntro = async () => {
       await announce('Voice logger. Tap to start, tap again to stop.', null, { rate: 1.1 });
@@ -51,24 +51,12 @@ export default function LogExpensePage() {
     announceShortIntro();
   }, [announce]);
 
-  const beginListening = useCallback(async () => {
-    setStage('listening')
-    setDraftExpense(null)
-    startListening()
-    if (navigator.vibrate) navigator.vibrate(60)
-    await announceClick('Recording. Speak now.')
-  }, [startListening, announceClick])
-
-  const finishListening = useCallback(async () => {
-    setStage('processing')
-    stopListening()
-    if (navigator.vibrate) navigator.vibrate([30, 50, 30])
-    await announceClick('Processing your input. Please wait.')
-  }, [stopListening, announceClick])
-
-  // UPDATED handleScreenTap to ensure clean state
+  // BUG FIX 1: Ensure clean state and mute system voice BEFORE starting the mic
   const handleScreenTap = () => {
     if (stage === 'idle' || stage === 'error') {
+      // Forcefully stop any system voice currently playing
+      window.speechSynthesis?.cancel();
+      
       setStage('listening')
       startListening()
       if (navigator.vibrate) navigator.vibrate(60)
@@ -79,7 +67,6 @@ export default function LogExpensePage() {
     }
   }
 
-  // --- UPDATED SAVE FUNCTION ---
   const handleSave = useCallback(async () => {
     if (!draftExpense) return
     setStage('saving')
@@ -93,7 +80,6 @@ export default function LogExpensePage() {
       })
       if (navigator.vibrate) navigator.vibrate([100, 50, 100])
       
-      // Instead of navigating home, show the Saved screen!
       setStage('saved')
       await announceSuccess(`Expense saved! ${draftExpense.amount.toFixed(2)} ringgit for ${draftExpense.category} saved successfully. You can add another entry or press Escape to return home.`)
     }, 1500)
@@ -120,7 +106,6 @@ export default function LogExpensePage() {
     }
   }, [stopListening])
 
-  // --- Long Press Logic ---
   const longPressTimer = useRef(null)
 
   const handlePointerDown = () => {
@@ -271,10 +256,8 @@ export default function LogExpensePage() {
           </div>
         )}
 
-        {/* --- NEW: STATE 7: SAVED --- */}
         {stage === 'saved' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-30 bg-[#0a0a0a]">
-            {/* The background stays faded, just like Figma */}
             <div className="absolute inset-0 opacity-10 flex flex-col items-center justify-center pointer-events-none px-6">
                <h2 className="text-4xl font-bold mb-4">{draftExpense?.note || 'Expense'}</h2>
                <p className="text-5xl font-bold mb-8 text-[#fdba74]">RM {draftExpense?.amount?.toFixed(2)}</p>
