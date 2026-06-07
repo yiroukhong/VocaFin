@@ -1,4 +1,5 @@
 import { useTransactions } from '@/hooks/useTransactions'
+import { useAudioFeedback } from '@/hooks/useAudioFeedback'
 import { useGesture } from '@use-gesture/react'
 import { Car, ChevronLeft, ChevronRight, Pause, Play, Redo, Repeat, ShoppingBag, Undo, Utensils, Volume2, VolumeX, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -21,8 +22,10 @@ const getCategoryColor = (category) => {
 export default function HistoryPage() {
   const { transactions } = useTransactions()
   const navigate = useNavigate()
+  const { announceNavigation } = useAudioFeedback()
   
   const [monthOffset, setMonthOffset] = useState(0)
+  const [pageLoaded, setPageLoaded] = useState(false)
   
   // Audio Player State
   const [playingId, setPlayingId] = useState(null)
@@ -32,6 +35,18 @@ export default function HistoryPage() {
   const [estimatedTime, setEstimatedTime] = useState(5000)
   const [repeatMode, setRepeatMode] = useState(false)
   const repeatModeRef = useRef(false)
+
+  // Announce page load
+  useEffect(() => {
+    if (!pageLoaded) {
+      const announcePage = async () => {
+        const announcement = 'Transaction history page. Swipe left or right to navigate between months. Press Space to hear all transactions for the current month.';
+        await announceNavigation(announcement);
+        setPageLoaded(true);
+      };
+      announcePage();
+    }
+  }, [pageLoaded, announceNavigation]);
 
   const displayDate = useMemo(() => {
     const date = new Date()

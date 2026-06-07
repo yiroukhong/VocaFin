@@ -1,6 +1,7 @@
 import Navbar from '@/components/Navbar'
 import { useUiStore } from '@/store/uiStore'
 import { useTransactions } from '@/hooks/useTransactions'
+import { useAudioFeedback } from '@/hooks/useAudioFeedback'
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Check, X } from 'lucide-react'
@@ -10,13 +11,27 @@ export default function ConfirmPage() {
   const clearPending = useUiStore((s) => s.clearPending)
   const { addTransaction } = useTransactions()
   const navigate = useNavigate()
+  const { announceClick, announceSuccess } = useAudioFeedback()
   const [touchStart, setTouchStart] = useState(null)
+  const [pageLoaded, setPageLoaded] = useState(false)
 
   useEffect(() => {
     if (!pendingTransaction) {
       navigate('/home')
     }
   }, [pendingTransaction, navigate])
+
+  // Announce page load
+  useEffect(() => {
+    if (!pageLoaded && pendingTransaction) {
+      const announcePage = async () => {
+        const announcement = `Confirm transaction. Amount: ${pendingTransaction.amount.toFixed(2)} ringgit for ${pendingTransaction.category}. Press Enter to confirm or Escape to cancel.`;
+        await announceClick(announcement);
+        setPageLoaded(true);
+      };
+      announcePage();
+    }
+  }, [pageLoaded, pendingTransaction, announceClick]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -28,7 +43,7 @@ export default function ConfirmPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   })
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (pendingTransaction) {
       addTransaction({
         ...pendingTransaction,
@@ -37,13 +52,15 @@ export default function ConfirmPage() {
       clearPending()
       // Mock haptic feedback as mentioned in report
       if (navigator.vibrate) navigator.vibrate([100, 50, 100])
-      navigate('/home')
+      await announceSuccess(`Transaction confirmed. ${pendingTransaction.amount.toFixed(2)} ringgit saved for ${pendingTransaction.category}.`);
+      setTimeout(() => navigate('/home'), 500)
     }
   }
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     clearPending()
-    navigate('/home')
+    await announceClick('Transaction cancelled. Returning to home.');
+    setTimeout(() => navigate('/home'), 100)
   }
 
   // Swipe gesture detection
