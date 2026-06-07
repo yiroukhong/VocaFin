@@ -17,20 +17,11 @@ export default function HomePage() {
   const topData = getTopCategory ? getTopCategory(transactions) : ['None', 0];
   const topCategory = topData[0];
 
-  // Announce page on load
+  // Announce page on load (Simplified)
   useEffect(() => {
-    if (!pageLoaded) {
-      const announcePage = async () => {
-        const budgetInfo = `Remaining budget: ${remainingBudget.toFixed(2)} ringgit. Total spent this month: ${totalSpentThisMonth.toFixed(2)} ringgit. Top category: ${topCategory}.`;
-        const navigationHelp = 'Four buttons available. Extract to scan receipts, History to view transactions, Summary for budget overview, and Voice to log expenses. Use Tab to navigate or arrow keys to move between buttons.';
-        
-        await announce(`${budgetInfo} ${navigationHelp}`, null, { rate: 0.9 });
-        setPageLoaded(true);
-      };
-      
-      announcePage();
-    }
-  }, [pageLoaded, remainingBudget, totalSpentThisMonth, topCategory, announce]);
+    // Announce only the page title upon entering
+    announce('Home page reached successfully.');
+  }, [announce]);
 
   // Keyboard shortcut for accessibility
   useEffect(() => {

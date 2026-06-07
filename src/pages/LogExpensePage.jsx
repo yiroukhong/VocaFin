@@ -18,44 +18,38 @@ export default function LogExpensePage() {
   const { addTransaction } = useTransactions()
   const { announce, announceSuccess, announceError, announceClick } = useAudioFeedback()
   
-  // Stages: 'idle' -> 'listening' -> 'processing' -> 'error' -> 'confirm' -> 'saving' -> 'saved'
   const [stage, setStage] = useState('idle') 
   const [draftExpense, setDraftExpense] = useState(null)
-  const [pageLoaded, setPageLoaded] = useState(false)
   
-  // Voice Hook
+  // FIX: Using the 'finalText' only from the callback ensures we don't process partial fragments
   const { transcript, error: micError, startListening, stopListening } = useVoiceInput((finalText) => {
-    console.log('🎙️ [VOICE DEBUG] Raw text heard:', `"${finalText}"`)
+    // Only process if we actually have text
+    if (!finalText || finalText.trim().length === 0) return;
 
-    if (!finalText || !finalText.trim()) {
+    // Use a Regex to remove duplicate numbers/stutter if necessary
+    // Here we clean the text before parsing
+    const cleanedText = finalText.replace(/(\d+)\s+\1/g, '$1'); 
+    
+    const parsed = parseSpokenExpense(cleanedText)
+
+    if (!parsed.amount || parsed.amount === 0 || !parsed.category) {
       setStage('error')
-      announceError("Sorry, I didn't catch that. Please try again.")
-      return
-    }
-
-    const parsed = parseSpokenExpense(finalText)
-
-    if (parsed.needsAmount || parsed.needsCategory || parsed.amount === 0) {
-      setStage('error')
-      announceError("Sorry, I didn't catch that. Please try again.")
+      announceError("I heard " + finalText + ". Please speak clearly including amount and category.")
       return
     }
 
     setDraftExpense(parsed)
     setStage('confirm')
-    announceClick(`Confirming. ${parsed.amount.toFixed(2)} ringgit for ${parsed.category}.`)
+    announceClick(`Confirmed. ${parsed.amount.toFixed(2)} for ${parsed.category}.`)
   })
 
-  // Announce page load on first render
+  // Short, concise intro
   useEffect(() => {
-    if (!pageLoaded) {
-      const announcePageLoad = async () => {
-        await announce('Voice expense logger. Tap the screen or press Space to start speaking. Say your expense, for example: RM 10 for lunch.', null, { rate: 0.9 });
-        setPageLoaded(true);
-      };
-      announcePageLoad();
-    }
-  }, [pageLoaded, announce]);
+    const announceShortIntro = async () => {
+      await announce('Voice logger. Tap to start, tap again to stop.', null, { rate: 1.1 });
+    };
+    announceShortIntro();
+  }, [announce]);
 
   const beginListening = useCallback(async () => {
     setStage('listening')
@@ -72,11 +66,16 @@ export default function LogExpensePage() {
     await announceClick('Processing your input. Please wait.')
   }, [stopListening, announceClick])
 
+  // UPDATED handleScreenTap to ensure clean state
   const handleScreenTap = () => {
     if (stage === 'idle' || stage === 'error') {
-      beginListening()
+      setStage('listening')
+      startListening()
+      if (navigator.vibrate) navigator.vibrate(60)
     } else if (stage === 'listening') {
-      finishListening()
+      setStage('processing')
+      stopListening()
+      if (navigator.vibrate) navigator.vibrate([30, 50, 30])
     }
   }
 
